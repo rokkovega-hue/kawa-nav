@@ -18,6 +18,8 @@ concurrency:
 jobs:
   check:
     name: New version?
+    # calimoto build: releases need the original's signing key, so a fork never releases
+    if: github.repository == 'Darthbob/kawa-nav'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:

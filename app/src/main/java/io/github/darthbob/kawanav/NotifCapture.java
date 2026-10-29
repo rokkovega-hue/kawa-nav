@@ -81,7 +81,8 @@ public final class NotifCapture {
      */
     public static boolean watching(Context c, String pkg) {
         if (!enabled(c) || c.getPackageName().equals(pkg)) return false;
-        return allApps(c) || WAZE.equals(pkg) || "com.android.shell".equals(pkg);
+        return allApps(c) || WAZE.equals(pkg) || CalimotoParser.PACKAGE.equals(pkg)
+                || "com.android.shell".equals(pkg);
     }
 
     public static void onPosted(Context c, StatusBarNotification sbn) {

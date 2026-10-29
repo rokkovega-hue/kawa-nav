@@ -1,5 +1,10 @@
 # 🏍️ KawaNav
 
+> **calimoto build.** This version also reads **calimoto**'s turn-by-turn directions and sends them to
+> the dash, next to Google Maps (Settings → "calimoto directions", on by default). It installs as its
+> own app, "KawaNav calimoto", beside the original KawaNav (another signing key), and does not offer
+> the original's updates. See [calimoto](#-calimoto).
+
 Android app that shows **Google Maps turn-by-turn directions** or the **upcoming curves of the road
 you are on** on the TFT dash of a Kawasaki motorcycle, and that reads the bike's own data (odometer,
 fuel, temperatures, settings), **records your rides** with a track, charts and an export, and keeps a
@@ -689,8 +694,30 @@ fallback.
 
 The Start/Stop button on Home is only a manual fallback (autostart missed, testing).
 
+## 🧭 calimoto
+
+KawaNav reads calimoto's navigation notification the same way as Google Maps': the instruction text
+("Rechts abbiegen", "Im Kreisverkehr Ausfahrt 2 nehmen", "Turn sharp left" — calimoto routes with
+GraphHopper, whose wording the Maps parser already reads) and, where calimoto draws one, its arrow
+(a calimoto drawable is recognised by its resource name, a bitmap by comparing it with calimoto's
+drawables). The distance is the one in the instruction, or a line that holds only a distance
+("300 m"). Arrival lines (with a clock time) and the remaining distance of the route are ignored, and
+a calimoto notification without a maneuver (tracking a ride, calculating a route) does not count as
+navigation, so free ride keeps running then.
+
+**Not yet tried on a ride.** What calimoto puts in its notification is not documented. If it shows no
+instruction there (as Waze does, see [docs/WAZE.md](docs/WAZE.md)), there is nothing to read. To check:
+
+1. Start a route in calimoto and ride or drive past a few turns, screen locked at least once.
+2. Settings → About → **Export the log**: it holds a "calimoto notification dump" (once per navigation)
+   and a "calimoto: …" line for each change, with what was read from it.
+3. In the debug APK, the hidden **Capture notifications** card (tap "Settings" seven times) writes
+   calimoto's notifications down with their icons, like the Waze test in docs/WAZE.md.
+
 ## 🚧 Known limitations
 
+- **calimoto support is untested**: whether calimoto's notification carries the turn at all is not
+  known yet (see [calimoto](#-calimoto)).
 - **Waze is not supported.** It does not put the next maneuver in its notification the way Google Maps
   does: a capture on a phone with Waze running holds only its "Waze is running" notification (channel
   `CLOSE_WAZE_CHANNEL`, no distance, no turn, no arrow), so there is nothing to read. Details and the

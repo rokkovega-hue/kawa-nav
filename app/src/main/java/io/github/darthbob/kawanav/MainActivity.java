@@ -344,7 +344,7 @@ public class MainActivity extends KawaActivity {
             case 0: return !missingPermissions().isEmpty();
             case 1: return !hasBackgroundLocation()
                     && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-            case 2: return Hub.mapsEnabled(this) && !hasNotificationAccess();
+            case 2: return Hub.navAppsEnabled(this) && !hasNotificationAccess();
             default: return !batteryUnrestricted();
         }
     }
@@ -371,9 +371,9 @@ public class MainActivity extends KawaActivity {
             case 2:
                 setupDialog = true;
                 new AlertDialog.Builder(this)
-                        .setTitle("Read Google Maps directions")
-                        .setMessage("To show Maps' directions on the dash, KawaNav reads Maps' navigation "
-                                + "notification.\n\nOn the next screen, turn on \"KawaNav\".")
+                        .setTitle("Read navigation directions")
+                        .setMessage("To show the directions of Google Maps or calimoto on the dash, KawaNav "
+                                + "reads their navigation notification.\n\nOn the next screen, turn on \"KawaNav calimoto\".")
                         .setPositiveButton("Continue", (d, w) -> {
                             setupDialog = false;
                             setupWaiting = true;
@@ -420,10 +420,10 @@ public class MainActivity extends KawaActivity {
         c.setPadding(dp(24), dp(8), dp(24), 0);
         c.addView(itemTitle("KawaNav was installed from a downloaded file, so Android protects this setting. "
                 + "Unlock it once:\n\n"
-                + "1. \"Try the switch\": tap KawaNav and its greyed-out switch once. Android refuses, "
+                + "1. \"Try the switch\": tap KawaNav calimoto and its greyed-out switch once. Android refuses, "
                 + "but this makes step 2 appear.\n"
                 + "2. \"Open app info\": tap ⋮ at the top right, then \"Allow restricted settings\" and confirm.\n"
-                + "3. Back in KawaNav, tap \"Open\" for Google Maps directions: the switch works now."));
+                + "3. Back in KawaNav, tap \"Open\" for navigation directions: the switch works now."));
         android.widget.ImageView shot = new android.widget.ImageView(this);
         shot.setImageResource(R.drawable.restricted_settings_help);
         shot.setAdjustViewBounds(true);
@@ -727,12 +727,13 @@ public class MainActivity extends KawaActivity {
             meterArrow.setVisibility(View.GONE);
             meterDistance.view.setVisibility(View.GONE);
             meterText.setText(Hub.serviceRunning ? "Nothing to show" : "Nothing sent to the bike");
-            boolean maps = Hub.mapsEnabled(this);
+            boolean maps = Hub.navAppsEnabled(this);
+            Hub.MapsTurn nav = Hub.navTurn(this);
             meterSource.setText(!Hub.serviceRunning ? ""
-                    : maps && Hub.maps != null ? "Google Maps is starting…"
+                    : nav != null ? nav.app + " is starting…"
                     : Hub.freeMode(this) ? (Hub.curveStatus.contains("·") ? "Waiting for GPS" : Hub.curveStatus)
-                    : maps ? "Start navigation in Google Maps, or turn on upcoming curves"
-                    : "Turn on Google Maps directions or upcoming curves");
+                    : maps ? "Start navigation in Google Maps or calimoto, or turn on upcoming curves"
+                    : "Turn on Google Maps or calimoto directions, or upcoming curves");
         } else {
             meterArrow.setVisibility(View.VISIBLE);
             meterArrow.setText(arrow(out.turn));
@@ -740,7 +741,8 @@ public class MainActivity extends KawaActivity {
             meterDistance.view.setVisibility(dist ? View.VISIBLE : View.GONE);
             if (dist) meterDistance.set(distance(out.distanceM));
             meterText.setText(turnName(out.turn));
-            meterSource.setText("Maps".equals(out.source) ? "From Google Maps"
+            Hub.MapsTurn nav = Hub.maps;
+            meterSource.setText("Maps".equals(out.source) ? "From " + (nav != null ? nav.app : "navigation")
                     : "Camera".equals(out.source) ? "Speed camera from the offline map data"
                     : "Curve ahead on your road");
         }
@@ -803,7 +805,7 @@ public class MainActivity extends KawaActivity {
         pairSub.setText(Hub.pairStatus.isEmpty() ? PAIR_HINT : Hub.pairStatus);
         missing += show(gpsRow, curves && !locationOn);
         boolean dashAlerts = prefs.getBoolean(Hub.KEY_DASH_CALLS, false) || prefs.getBoolean(Hub.KEY_DASH_MAIL, false);
-        missing += show(accessRow, (Hub.mapsEnabled(this) || dashAlerts) && !notifAccess);
+        missing += show(accessRow, (Hub.navAppsEnabled(this) || dashAlerts) && !notifAccess);
         missing += show(batteryRow, !batteryOk);
         missing += show(bgLocRow, curves && anyAuto && !backgroundLocation);
         banner.setVisibility(missing > 0 ? View.VISIBLE : View.GONE);
@@ -849,9 +851,9 @@ public class MainActivity extends KawaActivity {
         pairSub = (TextView) pairRow.getTag();
         gpsRow = bannerRow("Turn on location", "Upcoming curves need GPS", "Open",
                 v -> startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)));
-        accessRow = bannerRow("Allow reading Google Maps directions", installedFromFile()
-                        ? "Turn on \"KawaNav\" in the list that opens. Greyed out? Tap for help"
-                        : "Turn on \"KawaNav\" in the list that opens",
+        accessRow = bannerRow("Allow reading navigation directions", installedFromFile()
+                        ? "Turn on \"KawaNav calimoto\" in the list that opens. Greyed out? Tap for help"
+                        : "Turn on \"KawaNav calimoto\" in the list that opens",
                 "Open", v -> openListenerSettings());
         batteryRow = bannerRow("Allow unrestricted battery use", "So Android does not stop KawaNav in your pocket",
                 "Allow", v -> requestBatteryExemption());

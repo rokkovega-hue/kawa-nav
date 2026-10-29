@@ -13,11 +13,13 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'io.github.darthbob.kawanav'
+        // calimoto build: its own app id, so it installs beside the original KawaNav (signed with another
+        // key) instead of having to replace it
+        applicationId 'io.github.darthbob.kawanav.calimoto'
         minSdk 33
         targetSdk 36
         versionCode 29
-        versionName '1.2.8'
+        versionName '1.2.8-calimoto'
     }
 
     // BuildConfig.DEBUG: the debug card (dash icon tests, phone name, Bluetooth service list) only in debug builds
@@ -31,6 +33,15 @@ android {
     }
 
     signingConfigs {
+        // calimoto build: a fixed key for the debug APK, so every build (also the one GitHub Actions
+        // makes) installs over the last one and keeps rides, settings and notification access
+        calimotoDebug {
+            storeFile file('debug-signing.p12')
+            storePassword 'kawanav-calimoto'
+            keyAlias 'kawanav-calimoto'
+            keyPassword 'kawanav-calimoto'
+            storeType 'pkcs12'
+        }
         if (keystoreFile.exists()) {
             release {
                 storeFile file(keystore['storeFile'])
@@ -46,7 +57,7 @@ android {
             minifyEnabled false
             // with the release key where there is one (not in CI): the debug APK of a release then
             // installs over the normal one and back, keeping rides and settings
-            if (keystoreFile.exists()) signingConfig signingConfigs.release
+            signingConfig keystoreFile.exists() ? signingConfigs.release : signingConfigs.calimotoDebug
         }
         release {
             minifyEnabled false

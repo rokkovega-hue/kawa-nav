@@ -20,15 +20,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Watches Google Maps' turn-by-turn notification and publishes the current maneuver to {@link Hub}.
- * Needs "Notification access" for KawaNav in Android settings.
+ * Watches the turn-by-turn notification of Google Maps and of calimoto and publishes the current
+ * maneuver to {@link Hub}. Needs "Notification access" for KawaNav in Android settings.
  */
 public class MapsListener extends NotificationListenerService {
     public static final String MAPS = "com.google.android.apps.maps";
+    public static final String CALIMOTO = CalimotoParser.PACKAGE;
 
     private IconMemory icons;
     private String lastKey = "";
     private int navNotificationId = Integer.MIN_VALUE;
+    // calimoto's own state: both apps may have a notification up at the same time
+    private String calimotoKey = "";
+    private int calimotoNotificationId = Integer.MIN_VALUE;
 
     @Override
     public void onCreate() {
@@ -53,12 +57,17 @@ public class MapsListener extends NotificationListenerService {
     public void onListenerDisconnected() {
         Logger.log("Notification access disconnected");
         setMaps(null);
+        setCalimoto(null);
     }
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
         NotifCapture.onPosted(this, sbn);   // debug builds, switched on in the hidden card
         dashAlert(sbn, true);
+        if (CALIMOTO.equals(sbn.getPackageName())) {
+            onCalimoto(sbn);
+            return;
+        }
         if (!MAPS.equals(sbn.getPackageName())) return;
         Notification n = sbn.getNotification();
         boolean nav = Notification.CATEGORY_NAVIGATION.equals(n.category)
@@ -96,7 +105,7 @@ public class MapsListener extends NotificationListenerService {
         boolean firstOfSession = lastKey.isEmpty();
         lastKey = key;
 
-        if (firstOfSession) dumpExtras(n);
+        if (firstOfSession) dumpExtras("Maps", n);
 
         SharedPreferences p = Hub.prefs(this);
         boolean leftHand = p.getBoolean(Hub.KEY_LEFT_HAND, false);
@@ -167,11 +176,109 @@ public class MapsListener extends NotificationListenerService {
             lastKey = "";
             setMaps(null);
         }
+        if (CALIMOTO.equals(sbn.getPackageName()) && sbn.getId() == calimotoNotificationId) {
+            Logger.log("calimoto navigation ended");
+            calimotoKey = "";
+            calimotoNotificationId = Integer.MIN_VALUE;
+            setCalimoto(null);
+        }
     }
 
+    /** Google Maps' maneuver; null clears it, but never a maneuver calimoto put there. */
     private static void setMaps(Hub.MapsTurn m) {
+        if (m == null && Hub.maps != null && Hub.maps.fromCalimoto()) return;
         Hub.maps = m;
         BridgeService.poke();
+    }
+
+    /** calimoto's maneuver; null clears it, but never one Google Maps put there. */
+    private static void setCalimoto(Hub.MapsTurn m) {
+        if (m == null && (Hub.maps == null || !Hub.maps.fromCalimoto())) return;
+        Hub.maps = m;
+        BridgeService.poke();
+    }
+
+    // ------------------------------------------------------------------ calimoto
+
+    /**
+     * calimoto's navigation notification. Its layout is not known yet (see {@link CalimotoParser}), so
+     * every place an instruction could be is read: the texts of the notification and of a custom
+     * layout, a resource icon by its name, a bitmap arrow by comparing it with calimoto's drawables.
+     * The whole notification is logged once per navigation, so the log of a real ride shows what
+     * calimoto posts.
+     */
+    private void onCalimoto(StatusBarNotification sbn) {
+        Notification n = sbn.getNotification();
+        boolean nav = Notification.CATEGORY_NAVIGATION.equals(n.category)
+                || (n.flags & Notification.FLAG_ONGOING_EVENT) != 0
+                || (n.flags & Notification.FLAG_FOREGROUND_SERVICE) != 0;
+        if (!nav) return;
+        boolean leftHand = Hub.prefs(this).getBoolean(Hub.KEY_LEFT_HAND, false);
+
+        List<String> texts = new ArrayList<>();
+        Bundle ex = n.extras;
+        for (String k : new String[]{Notification.EXTRA_TITLE, Notification.EXTRA_TITLE_BIG,
+                Notification.EXTRA_TEXT, Notification.EXTRA_BIG_TEXT, Notification.EXTRA_SUB_TEXT,
+                Notification.EXTRA_INFO_TEXT, Notification.EXTRA_SUMMARY_TEXT}) {
+            addText(texts, ex.getCharSequence(k));
+        }
+        CharSequence[] lines = ex.getCharSequenceArray(Notification.EXTRA_TEXT_LINES);
+        if (lines != null) for (CharSequence l : lines) addText(texts, l);
+
+        // a resource icon is read by its name; a bitmap is compared with calimoto's drawables
+        CalimotoIcons.Named named = CalimotoIcons.fromResource(this, n.getLargeIcon(), leftHand);
+        if (named == null) named = CalimotoIcons.fromResource(this, n.getSmallIcon(), leftHand);
+        Icon arrow = n.getLargeIcon();
+        if (arrow != null && arrow.getType() == Icon.TYPE_RESOURCE) arrow = null;  // read by name above
+        if (arrow == null && n.getSmallIcon() != null && n.getSmallIcon().getType() == Icon.TYPE_BITMAP) {
+            arrow = n.getSmallIcon();
+        }
+        Bitmap icon = named != null ? null : loadIcon(arrow);
+        // a custom layout: its texts always count, its first image is the arrow if there is none yet
+        RemoteViews rv = n.bigContentView != null ? n.bigContentView : n.contentView;
+        Bitmap fromLayout = readRemoteViews(rv, texts, icon == null && named == null);
+        if (icon == null && named == null) icon = fromLayout;
+
+        String hash = icon != null ? IconMemory.hash(icon) : null;
+        String joined = String.join(" | ", texts);
+        String key = joined + "#" + hash + "#" + (named != null ? named.name : "");
+        if (key.equals(calimotoKey)) return;
+        boolean firstOfSession = calimotoKey.isEmpty();
+        calimotoKey = key;
+        if (firstOfSession) dumpExtras("calimoto", n);
+
+        CalimotoParser.Instruction ins = CalimotoParser.pick(texts, leftHand);
+        IconMemory.Hit hit;
+        if (named != null) {
+            hit = named.turn == IconMemory.NOT_A_MANEUVER ? null
+                    : new IconMemory.Hit(named.turn, CalimotoIcons.SOURCE + " " + named.name);
+        } else {
+            hit = icons.lookupCalimoto(hash, leftHand);
+        }
+        int turn = MapsParser.chooseTurn(ins.text, hit == null ? null : hit.turn, leftHand);
+        String how = hit == null ? "text" : turn == hit.turn ? hit.source : hit.source + " + text";
+        String iconInfo = named != null ? "resource " + named.name
+                : icon == null ? "no icon" : "icon " + icon.getWidth() + "px #" + IconMemory.shortId(hash);
+
+        if (turn == KawaProtocol.TURN_NONE) {
+            // tracking a ride, "route is calculated", a download: no maneuver, so no navigation to show
+            Logger.log("calimoto: \"" + joined + "\" -> no maneuver (" + iconInfo + ")");
+            if (sbn.getId() == calimotoNotificationId) setCalimoto(null);
+            return;
+        }
+        calimotoNotificationId = sbn.getId();
+        icons.collect(hash, icon, MapsParser.parseTurn(ins.text, leftHand), ins.text.isEmpty() ? joined : ins.text);
+        int dist = ins.distanceM;
+        Logger.log("calimoto: \"" + joined + "\" -> " + turnName(turn) + ", " + dist + " m (" + how + ", " + iconInfo + ")");
+        setCalimoto(new Hub.MapsTurn(turn, dist,
+                turnName(turn) + (dist >= 0 ? " · " + dist + " m" : "") + " (calimoto, " + how + ")",
+                CalimotoParser.APP_NAME));
+    }
+
+    private static void addText(List<String> texts, CharSequence cs) {
+        if (cs == null || cs.length() == 0) return;
+        String s = cs.toString().trim();
+        if (!s.isEmpty() && !texts.contains(s)) texts.add(s);
     }
 
     static String turnName(int turn) {
@@ -200,7 +307,7 @@ public class MapsListener extends NotificationListenerService {
         try {
             walk(rv.apply(this, new FrameLayout(this)), texts, found);
         } catch (RuntimeException e) {
-            Logger.log("Reading Maps notification layout failed: " + e);
+            Logger.log("Reading notification layout failed: " + e);
         }
         return found != null ? found[0] : null;
     }
@@ -219,10 +326,12 @@ public class MapsListener extends NotificationListenerService {
     }
 
     /** Logs the whole notification once per navigation session, to calibrate the parser. */
-    private void dumpExtras(Notification n) {
-        StringBuilder sb = new StringBuilder("Maps notification dump: category=").append(n.category)
+    private void dumpExtras(String app, Notification n) {
+        StringBuilder sb = new StringBuilder(app).append(" notification dump: category=").append(n.category)
                 .append(" flags=0x").append(Integer.toHexString(n.flags))
-                .append(" customView=").append(n.contentView != null || n.bigContentView != null);
+                .append(" customView=").append(n.contentView != null || n.bigContentView != null)
+                .append(" smallIcon=").append(iconDescription(n.getSmallIcon()))
+                .append(" largeIcon=").append(iconDescription(n.getLargeIcon()));
         for (String k : n.extras.keySet()) {
             Object v = n.extras.get(k);
             String s = String.valueOf(v);
@@ -230,5 +339,15 @@ public class MapsListener extends NotificationListenerService {
             sb.append("\n    ").append(k).append(" = ").append(s);
         }
         Logger.log(sb.toString());
+    }
+
+    /** "bitmap", "resource com.calimoto.calimoto/ic_turn_left", for the dump. */
+    private String iconDescription(Icon icon) {
+        if (icon == null) return "none";
+        int type = icon.getType();
+        if (type == Icon.TYPE_BITMAP || type == Icon.TYPE_ADAPTIVE_BITMAP) return "bitmap";
+        if (type != Icon.TYPE_RESOURCE) return "type " + type;
+        String name = CalimotoIcons.resourceName(this, icon);
+        return "resource " + icon.getResPackage() + "/" + (name != null ? name : Integer.toHexString(icon.getResId()));
     }
 }

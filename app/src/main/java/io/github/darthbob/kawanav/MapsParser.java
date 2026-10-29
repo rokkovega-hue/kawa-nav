@@ -20,7 +20,7 @@ public final class MapsParser {
     private MapsParser() {}
 
     // "250 m", "1,2 km", "0.3 mi", "500 ft", "200 yd", "300 м", "1,5 км", "300 μ", "1,5 χλμ"
-    private static final Pattern DISTANCE = Pattern.compile(
+    static final Pattern DISTANCE = Pattern.compile(
             "(\\d+(?:[.,]\\d+)?)\\s*(km|mi|ft|yd|m|км|м|χλμ|μ)(?!\\p{L})", Pattern.CASE_INSENSITIVE);
 
     static final String[] LEFT = {"links", "|left", "gauche", "izquierda", "sinistra", "esquerda", "lewo",
@@ -63,7 +63,8 @@ public final class MapsParser {
     static final String[] MIDDLE = {"mitte", "middle", "center", "milieu", "centre", "centro", "medio",
             "centrale", "midden", "meio", "środk", "střed", "mitten", "midt", "keski", "μεσαί", "κέντρο",
             "средн", "центр"};
-    static final String[] STRAIGHT = {"weiter", "geradeaus", "continue", "straight", "continuez", "tout droit",
+    // "straßenverlauf": GraphHopper's (calimoto's) "Dem Straßenverlauf folgen" for a plain continue
+    static final String[] STRAIGHT = {"weiter", "geradeaus", "straßenverlauf", "continue", "straight", "continuez", "tout droit",
             "continúa", "continúe", "recto", "continua", "prosegui", "dritto", "diritto", "ga verder",
             "rechtdoor", "em frente", "prosto", "kontynuuj", "jedź dalej", "rovně", "pokračujte", "rakt fram",
             "fortsätt", "ligeud", "fortsæt", "rett frem", "fortsett", "suoraan", "jatka", "ευθεία",

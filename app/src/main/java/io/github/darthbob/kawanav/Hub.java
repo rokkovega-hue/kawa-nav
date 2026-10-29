@@ -10,20 +10,36 @@ import android.content.SharedPreferences;
 public final class Hub {
     private Hub() {}
 
-    /** What the bridge should show for Google Maps; null when Maps is not navigating. */
+    /**
+     * What the bridge should show for the navigation app (Google Maps or calimoto); null when none is
+     * navigating.
+     */
     public static final class MapsTurn {
         public final int turn;        // KawaProtocol turn id, or TURN_NONE when not recognised
         public final int distanceM;   // -1 when no distance was found
         public final String text;     // human readable, for UI/log
         public final long updatedAt;
+        /** The app the maneuver comes from: {@link #APP_MAPS} or {@link CalimotoParser#APP_NAME}. */
+        public final String app;
 
         public MapsTurn(int turn, int distanceM, String text) {
+            this(turn, distanceM, text, APP_MAPS);
+        }
+
+        public MapsTurn(int turn, int distanceM, String text, String app) {
             this.turn = turn;
             this.distanceM = distanceM;
             this.text = text;
+            this.app = app;
             this.updatedAt = System.currentTimeMillis();
         }
+
+        public boolean fromCalimoto() {
+            return CalimotoParser.APP_NAME.equals(app);
+        }
     }
+
+    public static final String APP_MAPS = "Google Maps";
 
     /** A frame the bridge sends; distance in metres. */
     public static final class Output {
@@ -97,6 +113,7 @@ public final class Hub {
     public static final String PREFS = "settings";
     public static final String KEY_FREE_MODE = "free_mode";
     public static final String KEY_MAPS = "maps_directions";
+    public static final String KEY_CALIMOTO = "calimoto_directions";
     public static final String KEY_LEFT_HAND = "left_hand_traffic";
     public static final String KEY_IMPERIAL = "imperial";
     public static final String KEY_SENSITIVITY = "curve_sensitivity"; // 0 low, 1 normal, 2 high
@@ -234,6 +251,23 @@ public final class Hub {
     /** Google Maps directions on the meter: on unless turned off; off, free mode runs during navigation too. */
     public static boolean mapsEnabled(Context c) {
         return prefs(c).getBoolean(KEY_MAPS, true);
+    }
+
+    /** calimoto directions on the meter: on unless turned off. */
+    public static boolean calimotoEnabled(Context c) {
+        return prefs(c).getBoolean(KEY_CALIMOTO, true);
+    }
+
+    /** Either navigation app is read: notification access is needed. */
+    public static boolean navAppsEnabled(Context c) {
+        return mapsEnabled(c) || calimotoEnabled(c);
+    }
+
+    /** The maneuver to show, if the app it comes from is switched on; null otherwise. */
+    public static MapsTurn navTurn(Context c) {
+        MapsTurn m = maps;
+        if (m == null) return null;
+        return (m.fromCalimoto() ? calimotoEnabled(c) : mapsEnabled(c)) ? m : null;
     }
 
     /** Debug value of a status icon field (-1 = automatic, always in release builds). */

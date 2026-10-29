@@ -1141,7 +1141,7 @@ public abstract class KawaActivity extends Activity {
                 .setMessage("Autostart starts KawaNav while your phone is locked in your pocket. "
                         + "To show curve warnings then, KawaNav needs GPS in the background.\n\n"
                         + "On the next screen, select \"Allow all the time\".\n\n"
-                        + "Without it, Google Maps arrows still work, but curve warnings only start "
+                        + "Without it, Google Maps and calimoto arrows still work, but curve warnings only start "
                         + "after you open KawaNav.")
                 .setPositiveButton("Continue", (d, w) -> {
                     if (onContinue != null) onContinue.run();

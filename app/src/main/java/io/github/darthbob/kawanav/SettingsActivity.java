@@ -347,6 +347,8 @@ public class SettingsActivity extends KawaActivity {
         LinearLayout c = group();
         addRow(c, switchRow("Google Maps directions",
                 "While Maps is navigating, the bike's display shows its directions", Hub.KEY_MAPS, true));
+        addRow(c, switchRow("calimoto directions",
+                "While calimoto is navigating, the bike's display shows its directions", Hub.KEY_CALIMOTO, true));
 
         Switch free = accentSwitch(Hub.freeMode(this));
         free.setOnCheckedChangeListener((b, on) -> {

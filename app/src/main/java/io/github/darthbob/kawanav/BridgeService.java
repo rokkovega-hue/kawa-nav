@@ -29,7 +29,7 @@ import java.util.Locale;
 
 /**
  * Keeps the link to the bike and, once a second, sends whatever should be on the meter:
- * the Google Maps maneuver if Maps is navigating, else the next curve in free mode, else nothing.
+ * the Google Maps or calimoto maneuver if one of them is navigating, else the next curve in free mode, else nothing.
  */
 @SuppressLint("MissingPermission") // every Bluetooth call is behind Hub.bluetoothAllowed / a SecurityException catch
 public class BridgeService extends Service implements KawaBle.Listener {
@@ -1149,7 +1149,7 @@ public class BridgeService extends Service implements KawaBle.Listener {
     }
 
     private Hub.Output decide() {
-        Hub.MapsTurn m = Hub.mapsEnabled(this) ? Hub.maps : null;
+        Hub.MapsTurn m = Hub.navTurn(this);
         // a camera warning comes first: it is short, and it is the one thing the rider cannot see coming
         Hub.Output cam = cameraWarning(m != null);
         if (cam != null) return cam;
@@ -1216,7 +1216,7 @@ public class BridgeService extends Service implements KawaBle.Listener {
     private void sayCurve(long now) {
         if (!soundAllowed()) return;
         SharedPreferences p = Hub.prefs(this);
-        Hub.MapsTurn m = Hub.mapsEnabled(this) ? Hub.maps : null;
+        Hub.MapsTurn m = Hub.navTurn(this);
         double maneuver = m == null ? Double.POSITIVE_INFINITY : m.distanceM;
         BikeFrames.Telemetry live = Hub.bike.live;
         double speed = CurveAlerts.speed(live == null ? Double.NaN : live.speedKmh, now - Hub.bike.liveAt, curve.speed());

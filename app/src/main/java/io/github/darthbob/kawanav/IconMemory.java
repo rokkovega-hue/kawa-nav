@@ -113,6 +113,14 @@ public final class IconMemory {
         return null;
     }
 
+    /** Turn for a bitmap arrow in calimoto's notification, or null (see {@link CalimotoIcons}). */
+    public Hit lookupCalimoto(String hash, boolean leftHandTraffic) {
+        if (hash == null) return null;
+        Integer t = nearest(hash, CalimotoIcons.library(context, leftHandTraffic));
+        if (t != null && t != NOT_A_MANEUVER) return new Hit(t, CalimotoIcons.SOURCE);
+        return null;
+    }
+
     /** Value of the closest entry within tolerance, or null. */
     private static Integer nearest(String hash, Map<String, Integer> map) {
         Integer best = null;

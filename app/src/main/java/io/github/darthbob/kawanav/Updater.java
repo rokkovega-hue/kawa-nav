@@ -53,8 +53,15 @@ public final class Updater {
         void bytes(long done, long total);
     }
 
+    /**
+     * Off in the calimoto build: it is signed with another key and installed beside the original app,
+     * so the original's releases are no update for it (they would install the original app instead).
+     */
+    public static final boolean ENABLED = false;
+
     /** The newest release if it is newer than this app, else null (network: not on the main thread). */
     public static Release check() throws Exception {
+        if (!ENABLED) return null;
         JSONObject latest = new JSONObject(get(LATEST_URL));
         String version = latest.getString("tag_name").replaceFirst("^v", "");
         if (compare(version, BuildConfig.VERSION_NAME) <= 0) return null;
