@@ -1,6 +1,12 @@
 {
   "versions": [
     {
+      "version": "1.2.8-calimoto2",
+      "changes": [
+        "calimoto: the distance to the turn now shows on the dash (calimoto writes \"in 30 Metern\", which was not read before)"
+      ]
+    },
+    {
       "version": "1.2.8-calimoto",
       "changes": [
         "calimoto directions on the dash: KawaNav reads calimoto's navigation notification like Google Maps' and sends arrow and distance to the dash (Settings: \"calimoto directions\", on by default). Not yet tried on a ride: the log records calimoto's notification once per navigation, to check and fix the reading",

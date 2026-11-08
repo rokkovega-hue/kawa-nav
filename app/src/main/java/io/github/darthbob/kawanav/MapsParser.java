@@ -20,8 +20,10 @@ public final class MapsParser {
     private MapsParser() {}
 
     // "250 m", "1,2 km", "0.3 mi", "500 ft", "200 yd", "300 м", "1,5 км", "300 μ", "1,5 χλμ"
+    // written-out units too: calimoto says "in 30 Metern", "in 1,2 Kilometern"
     static final Pattern DISTANCE = Pattern.compile(
-            "(\\d+(?:[.,]\\d+)?)\\s*(km|mi|ft|yd|m|км|м|χλμ|μ)(?!\\p{L})", Pattern.CASE_INSENSITIVE);
+            "(\\d+(?:[.,]\\d+)?)\\s*(kilometern|kilometer|kilometres?|kilometers|metern|meter|metres?|meters|miles?|feet|foot|yards?"
+                    + "|km|mi|ft|yd|m|км|м|χλμ|μ)(?!\\p{L})", Pattern.CASE_INSENSITIVE);
 
     static final String[] LEFT = {"links", "|left", "gauche", "izquierda", "sinistra", "esquerda", "lewo",
             "lewej", "vlevo", "levém", "doleva", "vänster", "venstre", "vasemm", "αριστερ", "налево", "влево", "слева", "левее"};
@@ -112,7 +114,13 @@ public final class MapsParser {
         } catch (NumberFormatException e) {
             return -1;
         }
-        switch (m.group(2).toLowerCase(Locale.ROOT)) {
+        String unit = m.group(2).toLowerCase(Locale.ROOT);
+        if (unit.startsWith("kilomet")) unit = "km";
+        else if (unit.startsWith("met")) unit = "m";
+        else if (unit.startsWith("mile")) unit = "mi";
+        else if (unit.equals("feet") || unit.equals("foot")) unit = "ft";
+        else if (unit.startsWith("yard")) unit = "yd";
+        switch (unit) {
             case "km":
             case "км":
             case "χλμ": return (int) Math.round(v * 1000);

@@ -22,6 +22,37 @@ public class CalimotoParserTest {
 
     // ------------------------------------------------------------------ texts
 
+    /** calimoto's real notification (first ride, 2026-11-08): title and text. */
+    @Test
+    public void realCalimotoNotification() {
+        CalimotoParser.Instruction i = pick("in 30 Metern Links abbiegen", "Links abbiegen auf Große Weilstraße");
+        assertEquals("in 30 Metern Links abbiegen", i.text);
+        assertEquals(30, i.distanceM);
+        assertEquals(1, MapsParser.parseTurn(i.text, false));
+        assertEquals(1200, pick("in 1,2 Kilometern Rechts abbiegen", "Rechts abbiegen auf B3").distanceM);
+        assertEquals(250, pick("in 250 Meter rechts halten").distanceM);
+    }
+
+    @Test
+    public void calimotoNotificationsWithoutManeuver() {
+        for (String[] texts : new String[][]{{"Navigation", "Initialisierung…"}, {"Tour pausiert", "..."},
+                {"Download von Deutschland", "5% / 7,7 GB"}, {"Download von", "Initialisierung…"}}) {
+            CalimotoParser.Instruction i = pick(texts);
+            assertEquals("", i.text);
+            assertEquals(-1, i.distanceM);
+        }
+    }
+
+    @Test
+    public void writtenOutUnits() {
+        assertEquals(30, MapsParser.parseDistance("in 30 Metern"));
+        assertEquals(500, MapsParser.parseDistance("in 500 meters turn left"));
+        assertEquals(1500, MapsParser.parseDistance("in 1.5 kilometres"));
+        assertEquals(1609, MapsParser.parseDistance("in 1 mile"));
+        assertEquals(91, MapsParser.parseDistance("in 300 feet"));
+        assertEquals(-1, MapsParser.parseDistance("7 Meteore"));
+    }
+
     @Test
     public void instructionAndDistanceInOneLine() {
         CalimotoParser.Instruction i = pick("In 300 m rechts abbiegen", "Ankunft 14:32 · 45 km");
